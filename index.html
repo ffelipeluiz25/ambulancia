@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Define o tema ANTES do CSS para evitar flash de layout incorreto -->
+  <script>
+    (function(){
+      try{document.documentElement.setAttribute("data-theme",localStorage.getItem("ca_theme")||"dark");}catch(e){}
+    })();
+  </script>
+  <title>Controle de Ambulâncias</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <style>
+    /*
+      Tema escuro definido em :root como padrão absoluto.
+      Assim, mesmo que data-theme ainda não exista no momento em que o CSS
+      é processado, as variáveis já têm valor e o layout nunca quebra.
+      O tema claro apenas sobrescreve via [data-theme="light"].
+    */
+    :root {
+      --accent:#14b8a6; --accent-hover:#0d9488; --danger:#ef4444;
+      color-scheme:dark;
+      --bg:#0a0e11; --bg-sidebar:#0d1317; --bg-card:#12191e; --bg-card-hover:#16212a;
+      --bg-input:#0f171d; --border:#1e2a33; --text:#e6edf3; --text-muted:#7d8b98;
+      --text-dim:#56636e; --topbar:#0a0e11; --row-hover:#16212a;
+    }
+    [data-theme="light"] {
+      color-scheme:light;
+      --bg:#f1f5f9; --bg-sidebar:#ffffff; --bg-card:#ffffff; --bg-card-hover:#f8fafc;
+      --bg-input:#ffffff; --border:#e2e8f0; --text:#1e293b; --text-muted:#64748b;
+      --text-dim:#94a3b8; --topbar:#ffffff; --row-hover:#f8fafc;
+    }
+
+    *{box-sizing:border-box;}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;transition:background .25s,color .25s;}
+
+    .app{display:flex;min-height:100vh;}
+
+    /* Sidebar */
+    .sidebar{width:250px;flex-shrink:0;background:var(--bg-sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;position:sticky;top:0;height:100vh;transition:background .25s,transform .25s;overflow-y:auto;}
+    .brand{display:flex;align-items:center;gap:12px;padding:4px 22px 22px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+    .brand .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#0891b2);display:grid;place-items:center;color:#fff;font-size:20px;flex-shrink:0;}
+    .brand-title{font-weight:700;font-size:17px;line-height:1.1;}
+    .brand-title span{color:var(--accent);}
+    .brand-sub{font-size:11px;color:var(--text-muted);letter-spacing:1px;}
+    .nav-section{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-dim);padding:16px 22px 8px;font-weight:600;}
+    .nav-item{display:flex;align-items:center;gap:13px;padding:11px 22px;color:var(--text-muted);cursor:pointer;font-size:14.5px;border-left:3px solid transparent;transition:all .15s;user-select:none;}
+    .nav-item i{font-size:17px;}
+    .nav-item:hover{background:var(--bg-card-hover);color:var(--text);}
+    .nav-item.active{background:var(--bg-card);color:var(--text);border-left-color:var(--accent);font-weight:600;}
+    .nav-item.active i{color:var(--accent);}
+    .sidebar-footer{margin-top:auto;padding:16px 22px 4px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .avatar{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;flex-shrink:0;font-size:15px;}
+    .sidebar-footer .info{line-height:1.2;flex:1;min-width:0;overflow:hidden;}
+    .sidebar-footer .info b{font-size:14px;}
+    .sidebar-footer .info small{color:var(--text-dim);font-size:10px;letter-spacing:.5px;}
+
+    /* Main */
+    .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+    .topbar{height:66px;background:var(--topbar);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 26px;position:sticky;top:0;z-index:20;transition:background .25s;}
+    .topbar h1{font-size:20px;margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .topbar .sub{font-size:12.5px;color:var(--text-muted);margin:0;}
+    .topbar-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+    .icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-muted);display:grid;place-items:center;cursor:pointer;font-size:17px;transition:all .15s;}
+    .icon-btn:hover{color:var(--text);border-color:var(--accent);}
+    .menu-toggle{display:none;}
+    .content{padding:26px;}
+
+    /* Panels */
+    .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:22px;}
+    .panel-title{font-size:16px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:9px;}
+    .panel-title i{color:var(--accent);}
+    .panel-sub{font-size:12.5px;color:var(--text-muted);margin:0;}
+
+    /* Dashboard system cards */
+    .system-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px;cursor:pointer;transition:all .18s;height:100%;}
+    .system-card:hover{background:var(--bg-card-hover);border-color:var(--accent);transform:translateY(-2px);}
+    .sc-ic{width:46px;height:46px;border-radius:11px;background:rgba(20,184,166,.12);color:var(--accent);display:grid;place-items:center;font-size:22px;margin-bottom:16px;}
+    .system-card h5{font-weight:700;margin:0 0 6px;}
+    .system-card p{font-size:13px;color:var(--text-muted);margin:0 0 18px;}
+    .system-card .go{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--text-muted);border-top:1px solid var(--border);padding-top:14px;}
+
+    /* Inputs */
+    .form-control,.form-select{background:var(--bg-input)!important;border:1px solid var(--border)!important;color:var(--text)!important;border-radius:9px;}
+    .form-control:focus,.form-select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 .2rem rgba(20,184,166,.18)!important;}
+    .form-control::placeholder{color:var(--text-dim)!important;}
+    label.form-label{font-size:13px;color:var(--text-muted);font-weight:600;margin-bottom:6px;}
+
+    /* Buttons */
+    .btn-accent{background:var(--accent);border:none;color:#fff;font-weight:600;border-radius:9px;padding:10px 20px;transition:background .15s;cursor:pointer;}
+    .btn-accent:hover{background:var(--accent-hover);color:#fff;}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9px;padding:10px 18px;font-weight:600;cursor:pointer;}
+    .btn-ghost:hover{color:var(--text);border-color:var(--accent);}
+
+    /* Tables */
+    .table-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;}
+    table.grid{width:100%;border-collapse:collapse;min-width:480px;}
+    table.grid thead th{background:var(--bg-input);color:var(--text-dim);font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+    table.grid tbody td{padding:13px 16px;font-size:14px;border-bottom:1px solid var(--border);color:var(--text);}
+    table.grid tbody tr:last-child td{border-bottom:none;}
+    table.grid tbody tr:hover{background:var(--row-hover);}
+    .empty{text-align:center;padding:40px 16px;color:var(--text-dim);font-size:14px;}
+    .empty i{font-size:34px;display:block;margin-bottom:10px;opacity:.5;}
+
+    /* Badges */
+    .badge-soft{padding:3px 11px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
+    .badge-count{background:rgba(20,184,166,.14);color:var(--accent);}
+    .badge-saida{background:rgba(234,179,8,.15);color:#eab308;}
+    .badge-entrada{background:rgba(34,197,94,.15);color:#22c55e;}
+    .badge-patio{background:rgba(34,197,94,.15);color:#22c55e;}
+    .badge-transito{background:rgba(234,179,8,.15);color:#eab308;}
+
+    /* Action buttons */
+    .btn-act{background:transparent;border:1px solid transparent;border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:14px;transition:all .15s;color:var(--text-dim);}
+    .btn-act:hover{border-color:var(--border);color:var(--text);}
+    .btn-act.del:hover{color:var(--danger);border-color:var(--danger);background:rgba(239,68,68,.08);}
+    .btn-act.edit:hover{color:var(--accent);border-color:var(--accent);background:rgba(20,184,166,.08);}
+
+    /* Cell avatar */
+    .cell-av{width:30px;height:30px;border-radius:8px;background:rgba(20,184,166,.15);color:var(--accent);display:inline-grid;place-items:center;font-size:12px;font-weight:700;margin-right:10px;vertical-align:middle;flex-shrink:0;}
+
+    /* Stat cards */
+    .stat{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:20px;height:100%;}
+    .stat .n{font-size:30px;font-weight:700;line-height:1;margin-bottom:4px;}
+    .stat .l{font-size:13px;color:var(--text-muted);}
+
+    /* Tipo toggle */
+    .tipo-toggle{display:flex;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:4px;gap:4px;}
+    .tipo-toggle input[type="radio"]{display:none;}
+    .tipo-toggle label{flex:1;text-align:center;padding:9px 12px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-muted);transition:all .15s;}
+    .tipo-toggle input[type="radio"]:checked+label{background:var(--accent);color:#fff;}
+
+    /* Frota cards */
+    .frota-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+
+    /* Modals */
+    .modal-content{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;color:var(--text);}
+    .modal-header{border-bottom:1px solid var(--border);padding:20px 22px 16px;}
+    .modal-header .modal-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:9px;}
+    .modal-header .modal-title i{color:var(--accent);}
+    .modal-header .btn-close{filter:invert(1);opacity:.5;}
+    [data-theme="light"] .modal-header .btn-close{filter:none;}
+    .modal-body{padding:22px;}
+    .modal-footer{border-top:1px solid var(--border);padding:16px 22px 20px;gap:8px;}
+    .modal-backdrop.show{opacity:.6;}
+
+    /* Inline alerts */
+    .a-warn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:9px;padding:10px 14px;font-size:13px;}
+    .a-info{background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.3);color:var(--accent);border-radius:9px;padding:10px 14px;font-size:13px;}
+
+    /* Filter bar */
+    .filter-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
+    .fg{display:flex;flex-direction:column;gap:5px;}
+
+    /* Danger zone */
+    .btn-danger-solid{background:var(--danger);border:none;color:#fff;font-weight:600;border-radius:9px;padding:10px 20px;transition:background .15s;cursor:pointer;opacity:.5;pointer-events:none;}
+    .btn-danger-solid.enabled{opacity:1;pointer-events:auto;}
+    .btn-danger-solid.enabled:hover{background:#dc2626;color:#fff;}
+    .danger-zone{border:1px solid rgba(239,68,68,.35);border-radius:14px;padding:22px;background:rgba(239,68,68,.05);}
+    .danger-zone .dz-title{font-size:15px;font-weight:700;color:#ef4444;display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+    .danger-zone .dz-sub{font-size:13px;color:var(--text-muted);margin-bottom:16px;}
+
+    /* Views */
+    .view{display:none;}
+    .view.active{display:block;animation:fadeIn .15s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+    /* Mobile backdrop */
+    .backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;}
+
+    @media(max-width:900px){
+      .sidebar{position:fixed;z-index:40;transform:translateX(-100%);box-shadow:4px 0 30px rgba(0,0,0,.4);}
+      .sidebar.open{transform:translateX(0);}
+      .menu-toggle{display:grid;}
+      .backdrop.show{display:block;}
+    }
+    @media(max-width:576px){
+      .content{padding:14px;}
+      .topbar{padding:0 14px;}
+      .panel{padding:16px;}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo"><i class="bi bi-truck-front-fill"></i></div>
+      <div>
+        <div class="brand-title"><span>Ambulâncias</span></div>
+        <div class="brand-sub">SISTEMAS</div>
+      </div>
+    </div>
+    <div class="nav-section">Início</div>
+    <div class="nav-item active" data-view="dashboard"><i class="bi bi-grid-1x2"></i> Dashboard</div>
+    <div class="nav-section">Sistemas</div>
+    <div class="nav-item" data-view="ambulancias"><i class="bi bi-truck-front"></i> Ambulâncias</div>
+    <div class="nav-item" data-view="lugares"><i class="bi bi-hospital"></i> Lugares</div>
+    <div class="nav-item" data-view="movimentacao"><i class="bi bi-arrow-left-right"></i> Movimentações</div>
+    <div class="nav-item" data-view="historico"><i class="bi bi-clock-history"></i> Histórico</div>
+    <div class="nav-section">Dados</div>
+    <div class="nav-item" data-view="exportar"><i class="bi bi-file-earmark-arrow-down"></i> Exportar</div>
+    <div class="nav-item" data-view="importar"><i class="bi bi-file-earmark-arrow-up"></i> Importar</div>
+    <div class="nav-section">Segurança</div>
+    <div class="nav-item" data-view="limpar" style="color:#ef4444;"><i class="bi bi-shield-exclamation" style="color:#ef4444;"></i> Limpar Dados</div>
+    <div class="sidebar-footer">
+      <div class="avatar">M</div>
+      <div class="info"><b>Maycon</b><br /><small>CONTROLE DE AMBULÂNCIAS</small></div>
+      <button class="icon-btn" id="themeBtnSide" title="Alternar tema" style="width:34px;height:34px;flex-shrink:0">
+        <i class="bi bi-brightness-high"></i>
+      </button>
+    </div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+        <button class="icon-btn menu-toggle" id="menuToggle"><i class="bi bi-list"></i></button>
+        <div style="min-width:0;">
+          <h1 id="pageTitle">Boa noite, Maycon!</h1>
+          <p class="sub" id="pageSub">Controle de Ambulâncias</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeBtn" title="Alternar tema"><i class="bi bi-brightness-high"></i></button>
+        <div class="avatar" style="cursor:default;">M</div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- VIEW: DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Seus sistemas</h2>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 20px;">Selecione um módulo para acessar</p>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6 col-lg-4">
+            <div class="system-card" data-view="ambulancias">
+              <div class="sc-ic"><i class="bi bi-truck-front"></i></div>
+              <h5>Ambulâncias</h5>
+              <p>Cadastro e gerenciamento da frota de ambulâncias disponíveis.</p>
+              <div class="go"><span>Gerenciar cadastro</span><i class="bi bi-arrow-right"></i></div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-4">
+            <div class="system-card" data-view="movimentacao">
+              <div class="sc-ic"><i class="bi bi-arrow-left-right"></i></div>
+              <h5>Movimentações</h5>
+              <p>Registro de movimentação com controle de saída e retorno à base.</p>
+              <div class="go"><span>Controlar movimentação</span><i class="bi bi-arrow-right"></i></div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-4">
+            <div class="system-card" data-view="historico">
+              <div class="sc-ic"><i class="bi bi-clock-history"></i></div>
+              <h5>Histórico</h5>
+              <p>Consulte e filtre todas as movimentações registradas por data.</p>
+              <div class="go"><span>Ver histórico completo</span><i class="bi bi-arrow-right"></i></div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-4">
+            <div class="system-card" data-view="exportar">
+              <div class="sc-ic"><i class="bi bi-file-earmark-arrow-down"></i></div>
+              <h5>Exportar</h5>
+              <p>Faça backup dos dados e baixe um arquivo JSON com todas as informações.</p>
+              <div class="go"><span>Exportar dados</span><i class="bi bi-arrow-right"></i></div>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-4">
+            <div class="system-card" data-view="importar">
+              <div class="sc-ic"><i class="bi bi-file-earmark-arrow-up"></i></div>
+              <h5>Importar</h5>
+              <p>Restaure informações de outro navegador a partir de um arquivo de backup.</p>
+              <div class="go"><span>Importar dados</span><i class="bi bi-arrow-right"></i></div>
+            </div>
+          </div>
+        </div>
+        <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Resumo</h2>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;">Visão geral em tempo real</p>
+        <div class="row g-3">
+          <div class="col-6 col-lg-3">
+            <div class="stat d-flex justify-content-between align-items-start">
+              <div><div class="n" id="stAmb">0</div><div class="l">Ambulâncias</div></div>
+              <i class="bi bi-truck-front" style="font-size:24px;color:var(--accent);"></i>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="stat d-flex justify-content-between align-items-start">
+              <div><div class="n" id="stTransito">0</div><div class="l">Em trânsito</div></div>
+              <i class="bi bi-box-arrow-right" style="font-size:24px;color:#eab308;"></i>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="stat d-flex justify-content-between align-items-start">
+              <div><div class="n" id="stPatio">0</div><div class="l">No pátio</div></div>
+              <i class="bi bi-house-check" style="font-size:24px;color:#22c55e;"></i>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="stat d-flex justify-content-between align-items-start">
+              <div><div class="n" id="stMov">0</div><div class="l">Movimentações</div></div>
+              <i class="bi bi-clock-history" style="font-size:24px;color:var(--accent);"></i>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: AMBULÂNCIAS -->
+      <section class="view" id="view-ambulancias">
+        <div class="panel">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h3 class="panel-title"><i class="bi bi-truck-front"></i> Ambulâncias</h3>
+              <p class="panel-sub">Frota cadastrada no sistema</p>
+            </div>
+            <button class="btn btn-accent" id="btnNovaAmb">
+              <i class="bi bi-plus-lg"></i> Nova Ambulância
+            </button>
+          </div>
+          <div class="table-wrap mt-3">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th style="width:50px;">#</th>
+                  <th>Nome / Identificação</th>
+                  <th style="width:145px;">Status atual</th>
+                  <th style="width:165px;">Cadastrado em</th>
+                  <th style="width:70px;text-align:center;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAmb"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: LUGARES -->
+      <section class="view" id="view-lugares">
+        <div class="panel">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h3 class="panel-title"><i class="bi bi-hospital"></i> Lugares</h3>
+              <p class="panel-sub">Hospitais e pontos de atendimento cadastrados</p>
+            </div>
+            <button class="btn btn-accent" id="btnNovoLug">
+              <i class="bi bi-plus-lg"></i> Novo Lugar
+            </button>
+          </div>
+          <div class="table-wrap mt-3">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th style="width:50px;">#</th>
+                  <th>Descrição</th>
+                  <th style="width:165px;">Cadastrado em</th>
+                  <th style="width:70px;text-align:center;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyLug"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: MOVIMENTAÇÃO -->
+      <section class="view" id="view-movimentacao">
+        <div class="panel">
+          <h3 class="panel-title"><i class="bi bi-activity"></i> Status da frota</h3>
+          <p class="panel-sub mb-3">Situação atual de cada ambulância</p>
+          <div class="row g-2" id="statusFrota"></div>
+        </div>
+        <div class="panel">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h3 class="panel-title mb-0"><i class="bi bi-arrow-left-right"></i> Movimentações</h3>
+            <button class="btn btn-accent" id="btnNovaMov">
+              <i class="bi bi-plus-lg"></i> Nova Movimentação
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th style="width:300px;">Ambulância</th>
+                  <th style="width:120px;">Tipo</th>
+                  <th style="width:130px;">Lugar</th>
+                  <th style="width:115px;">Data</th>
+                  <th style="width:80px;">Hora</th>
+                  <th style="width:110px;text-align:center;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyMov"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: HISTÓRICO -->
+      <section class="view" id="view-historico">
+        <div class="panel">
+          <h3 class="panel-title"><i class="bi bi-funnel"></i> Filtros</h3>
+          <p class="panel-sub mb-3">Filtre registros por período, tipo ou ambulância</p>
+          <div class="filter-bar">
+            <div class="fg"><label class="form-label">De</label><input type="date" class="form-control" id="filtDe" style="width:155px;" /></div>
+            <div class="fg"><label class="form-label">Até</label><input type="date" class="form-control" id="filtAte" style="width:155px;" /></div>
+            <div class="fg">
+              <label class="form-label">Tipo</label>
+              <select class="form-select" id="filtTipo" style="width:150px;">
+                <option value="">Todos</option>
+                <option value="saida">Saída</option>
+                <option value="entrada">Chegada</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="form-label">Ambulância</label>
+              <select class="form-select" id="filtAmb" style="width:190px;"><option value="">Todas</option></select>
+            </div>
+            <div class="fg" style="flex-direction:row;gap:8px;">
+              <button class="btn btn-accent" id="btnFiltrar"><i class="bi bi-search"></i> Filtrar</button>
+              <button class="btn btn-ghost" id="btnLimpar"><i class="bi bi-x-lg"></i> Limpar</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h3 class="panel-title mb-0"><i class="bi bi-clock-history"></i> Todas as movimentações</h3>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-ghost" id="btnDownloadRel" style="font-size:13px;"><i class="bi bi-file-earmark-pdf"></i> Download Relatório</button>
+              <button class="btn btn-ghost" id="btnPrintRel" style="font-size:13px;"><i class="bi bi-printer"></i> Imprimir Relatório</button>
+              <span class="badge-soft badge-count" id="histCount">0 registros</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th style="width:300px;">Ambulância</th>
+                  <th style="width:120px;">Tipo</th>
+                  <th style="width:130px;">Lugar</th>
+                  <th style="width:115px;">Data</th>
+                  <th style="width:80px;">Hora</th>
+                  <th style="width:145px;">Registrado em</th>
+                  <th style="width:80px;text-align:center;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyHist"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: EXPORTAR -->
+      <section class="view" id="view-exportar">
+        <div class="panel">
+          <h3 class="panel-title"><i class="bi bi-file-earmark-arrow-down"></i> Exportar dados</h3>
+          <p class="panel-sub mb-3">Baixe um arquivo JSON com todos os dados do sistema (ambulâncias e movimentações). Use para fazer backup ou transferir para outro navegador.</p>
+          <button class="btn btn-accent" id="btnExportar"><i class="bi bi-download"></i> Baixar arquivo JSON</button>
+          <div id="exportInfo" class="a-info mt-3" style="display:none;"></div>
+        </div>
+      </section>
+
+      <!-- VIEW: IMPORTAR -->
+      <section class="view" id="view-importar">
+        <div class="panel">
+          <h3 class="panel-title"><i class="bi bi-file-earmark-arrow-up"></i> Importar dados</h3>
+          <p class="panel-sub mb-2">Selecione um arquivo JSON exportado anteriormente para restaurar os dados.</p>
+          <div class="a-warn mb-3"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Atenção:</strong> a importação <strong>substituirá</strong> todos os dados atuais do sistema.</div>
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <input type="file" class="form-control" id="importFile" accept=".json" style="max-width:320px;" />
+            <button class="btn btn-accent" id="btnImportar"><i class="bi bi-upload"></i> Importar</button>
+          </div>
+          <div id="importResult" class="mt-3" style="display:none;"></div>
+        </div>
+      </section>
+
+      <!-- VIEW: LIMPAR DADOS -->
+      <section class="view" id="view-limpar">
+        <div class="panel mb-3">
+          <h3 class="panel-title" style="color:#ef4444;"><i class="bi bi-shield-exclamation" style="color:#ef4444;"></i> Zona de Segurança</h3>
+          <p class="panel-sub">Ações irreversíveis. Os dados apagados <strong>não podem ser recuperados</strong>. Faça um backup antes de prosseguir.</p>
+        </div>
+
+        <div class="danger-zone mb-4">
+          <div class="dz-title"><i class="bi bi-clock-history"></i> Limpar Movimentações</div>
+          <div class="dz-sub">Remove todos os registros de movimentação. As ambulâncias são mantidas. Esta ação não pode ser desfeita.</div>
+          <div class="mb-3">
+            <label class="form-label" style="color:var(--text-muted);">Digite <strong style="color:#ef4444;">CONFIRMAR</strong> para habilitar</label>
+            <input type="text" class="form-control" id="confirmMovInput" placeholder="CONFIRMAR" autocomplete="off" style="max-width:260px;" />
+          </div>
+          <button class="btn-danger-solid" id="btnLimparMov"><i class="bi bi-trash3"></i> Apagar todas as movimentações</button>
+          <div id="limparMovResult" class="mt-3" style="display:none;"></div>
+        </div>
+
+        <div class="danger-zone">
+          <div class="dz-title"><i class="bi bi-database-slash"></i> Limpar Todos os Dados</div>
+          <div class="dz-sub">Remove todas as ambulâncias e todos os registros de movimentação. O sistema ficará em estado inicial. Esta ação não pode ser desfeita.</div>
+          <div class="mb-3">
+            <label class="form-label" style="color:var(--text-muted);">Digite <strong style="color:#ef4444;">CONFIRMAR</strong> para habilitar</label>
+            <input type="text" class="form-control" id="confirmTudoInput" placeholder="CONFIRMAR" autocomplete="off" style="max-width:260px;" />
+          </div>
+          <button class="btn-danger-solid" id="btnLimparTudo"><i class="bi bi-database-slash"></i> Apagar tudo</button>
+          <div id="limparTudoResult" class="mt-3" style="display:none;"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVO LUGAR -->
+<div class="modal fade" id="modalLug" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-hospital"></i> Novo Lugar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formLug" novalidate>
+        <div class="modal-body">
+          <label class="form-label">Descrição *</label>
+          <input type="text" class="form-control" id="lugDesc" placeholder="Ex.: Hospital do Trabalhador" autocomplete="off" />
+          <div id="lugErr" class="a-warn mt-2" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-accent"><i class="bi bi-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA AMBULÂNCIA -->
+<div class="modal fade" id="modalAmb" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-truck-front"></i> Nova Ambulância</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formAmb" novalidate>
+        <div class="modal-body">
+          <label class="form-label">Nome / Identificação *</label>
+          <input type="text" class="form-control" id="ambNome" placeholder="Ex.: Ambulância 01 — UTI Móvel" autocomplete="off" />
+          <div id="ambErr" class="a-warn mt-2" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-accent"><i class="bi bi-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MOVIMENTAÇÃO -->
+<div class="modal fade" id="modalMov" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> <span id="movModalTitle">Nova Movimentação</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formMov" novalidate>
+        <input type="hidden" id="movEditId" />
+        <div class="modal-body">
+
+          <div class="mb-3" id="tipoGroup">
+            <label class="form-label">Tipo de movimentação *</label>
+            <div class="tipo-toggle">
+              <input type="radio" name="movTipo" id="rSaida" value="saida" checked />
+              <label for="rSaida"><i class="bi bi-box-arrow-right"></i> Saída</label>
+              <input type="radio" name="movTipo" id="rEntrada" value="entrada" />
+              <label for="rEntrada"><i class="bi bi-box-arrow-in-left"></i> Chegada</label>
+            </div>
+          </div>
+
+          <div class="mb-3" id="vitaGroup">
+            <label class="form-label">Lugar *</label>
+            <select class="form-select" id="movVita"></select>
+          </div>
+
+          <div class="mb-3" id="ambSelGroup">
+            <label class="form-label">Ambulância *</label>
+            <select class="form-select" id="movAmbSel"></select>
+            <div id="ambSelInfo" class="a-info mt-2" style="display:none;"></div>
+          </div>
+
+          <div class="mb-3" id="editInfoBox" style="display:none;">
+            <div class="a-info"><i class="bi bi-pencil-square"></i> Editando: <strong id="editInfoTxt"></strong></div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label">Data *</label>
+              <input type="date" class="form-control" id="movData" />
+            </div>
+            <div class="col-6">
+              <label class="form-label">Hora *</label>
+              <input type="time" class="form-control" id="movHora" />
+            </div>
+          </div>
+
+          <div id="movErr" class="a-warn mt-3" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-accent"><i class="bi bi-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIRMAR APAGAR APÓS RELATÓRIO -->
+<div class="modal fade" id="modalRelatorioConfirm" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-file-earmark-pdf"></i> Gerar Relatório</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="a-warn mb-3"><i class="bi bi-exclamation-triangle-fill"></i> <strong>Atenção:</strong> apagar após gerar não pode ser desfeito.</div>
+        <p>Deseja apagar <strong>todos os dados</strong> (ambulâncias, lugares e movimentações) após gerar o relatório?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-ghost" id="btnConfRelNao"><i class="bi bi-file-earmark-check"></i> Não, apenas gerar</button>
+        <button type="button" class="btn-danger-solid enabled" id="btnConfRelSim"><i class="bi bi-trash3"></i> Sim, apagar após gerar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ─── Storage ─── */
+  const K_AMB = "ca_amb_v3", K_MOV = "ca_mov_v3", K_LUG = "ca_lug_v1", K_THEME = "ca_theme";
+  const load    = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } };
+  const persist = (k, v) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) {
+      if (e.name === "QuotaExceededError" && k !== K_THEME) {
+        alert("⚠️ Armazenamento local cheio.\nNão foi possível salvar os dados.\nAcesse Dados → Exportar para fazer backup e depois Segurança → Limpar Dados.");
+      }
+    }
+  };
+
+  let ambs = load(K_AMB);
+  let movs = load(K_MOV);
+  let lugs = load(K_LUG);
+
+  /* ─── Helpers ─── */
+  const $       = s => document.querySelector(s);
+  const uid     = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const esc     = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const ini     = s => (String(s).trim()[0] || "?").toUpperCase();
+  const nowDate = () => new Date().toISOString().slice(0, 10);
+  const nowTime = () => new Date().toTimeString().slice(0, 5);
+  const fmtDate = iso => { if (!iso) return "—"; const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
+  const stampNow = () => {
+    const n = new Date();
+    return n.toLocaleDateString("pt-BR") + " " + n.toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"});
+  };
+
+  /* ─── Status: último movimento determina situação + localização ─── */
+  function getAmbInfo(ambId) {
+    const last = [...movs]
+      .filter(m => m.ambId === ambId)
+      .sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora))[0];
+    if (!last) return { status: "patio", vita: null };
+    return last.tipo === "saida"
+      ? { status: "saida", vita: last.vita || null }
+      : { status: "patio", vita: last.vita || null };
+  }
+
+  /* ─── Navigation ─── */
+  const pageMeta = {
+    dashboard:    ["Boa noite, Maycon!",           "Controle de Ambulâncias"],
+    ambulancias:  ["Ambulâncias",                  "Cadastro e gerenciamento da frota"],
+    lugares:      ["Lugares",                      "Hospitais e pontos de atendimento"],
+    movimentacao: ["Movimentações",                "Controle de movimentação das ambulâncias"],
+    historico:    ["Histórico",                    "Consulte e filtre todas as movimentações registradas"],
+    exportar:     ["Exportar Dados",               "Faça backup de todos os dados do sistema"],
+    importar:     ["Importar Dados",               "Restaure dados a partir de um arquivo de backup"],
+    limpar:       ["Limpar Dados",                 "Zona de segurança — ações irreversíveis"],
+  };
+
+  function goTo(view) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + view).classList.add("active");
+    document.querySelectorAll(".nav-item").forEach(n =>
+      n.classList.toggle("active", n.dataset.view === view));
+    $("#pageTitle").textContent = pageMeta[view][0];
+    $("#pageSub").textContent   = pageMeta[view][1];
+    closeSidebar();
+    window.scrollTo(0, 0);
+    if (view === "ambulancias")  renderAmb();
+    if (view === "lugares")      renderLug();
+    if (view === "movimentacao") { renderFrota(); renderMovTable(); }
+    if (view === "historico")    { populateFiltAmb(); renderHistorico(); }
+    if (view === "dashboard")    renderStats();
+    if (view === "limpar") {
+      ["confirmMovInput","confirmTudoInput"].forEach(id => { document.getElementById(id).value = ""; });
+      ["btnLimparMov","btnLimparTudo"].forEach(id => { document.getElementById(id).classList.remove("enabled"); });
+      ["limparMovResult","limparTudoResult"].forEach(id => { document.getElementById(id).style.display = "none"; });
+    }
+  }
+
+  document.querySelectorAll("[data-view]").forEach(el =>
+    el.addEventListener("click", () => goTo(el.dataset.view)));
+
+  /* ─── Sidebar (mobile) ─── */
+  const sidebarEl  = $("#sidebar");
+  const backdropEl = $("#backdrop");
+  const openSidebar  = () => { sidebarEl.classList.add("open");    backdropEl.classList.add("show"); };
+  const closeSidebar = () => { sidebarEl.classList.remove("open"); backdropEl.classList.remove("show"); };
+  $("#menuToggle").addEventListener("click", openSidebar);
+  backdropEl.addEventListener("click", closeSidebar);
+
+  /* ─── Theme ─── */
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    persist(K_THEME, t);
+    const ic = t === "dark" ? "bi-brightness-high" : "bi-moon-stars";
+    $("#themeBtn").innerHTML     = `<i class="bi ${ic}"></i>`;
+    $("#themeBtnSide").innerHTML = `<i class="bi ${ic}"></i>`;
+  }
+  const toggleTheme = () =>
+    applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  $("#themeBtn").addEventListener("click", toggleTheme);
+  $("#themeBtnSide").addEventListener("click", toggleTheme);
+  applyTheme(localStorage.getItem(K_THEME) || "dark");
+
+  /* ══════════════════════════════════
+     LUGARES
+  ══════════════════════════════════ */
+  const bsModalLug = new bootstrap.Modal("#modalLug");
+
+  function populateVitaSelect(keepVal) {
+    const sel = $("#movVita");
+    const prev = keepVal !== undefined ? keepVal : sel.value;
+    sel.innerHTML = `<option value="">Selecione...</option>` +
+      lugs.map(l => `<option value="${esc(l.desc)}">${esc(l.desc)}</option>`).join("");
+    if (prev) sel.value = prev;
+  }
+
+  function renderLug() {
+    const tb = $("#tbodyLug");
+    if (!lugs.length) {
+      tb.innerHTML = `<tr><td colspan="4"><div class="empty"><i class="bi bi-hospital"></i>Nenhum lugar cadastrado.<br>Clique em "Novo Lugar" para começar.</div></td></tr>`;
+      return;
+    }
+    tb.innerHTML = lugs.map((l, i) => `
+      <tr>
+        <td style="color:var(--text-dim)">${i + 1}</td>
+        <td><span class="cell-av">${esc(ini(l.desc))}</span>${esc(l.desc)}</td>
+        <td style="color:var(--text-muted);font-size:13px;">${esc(l.criado)}</td>
+        <td style="text-align:center;">
+          <button class="btn-act del" data-del-lug="${l.id}" title="Excluir"><i class="bi bi-trash3"></i></button>
+        </td>
+      </tr>`).join("");
+  }
+
+  $("#btnNovoLug").addEventListener("click", () => {
+    $("#formLug").reset();
+    $("#lugErr").style.display = "none";
+    bsModalLug.show();
+    setTimeout(() => $("#lugDesc").focus(), 350);
+  });
+
+  $("#formLug").addEventListener("submit", e => {
+    e.preventDefault();
+    const desc = $("#lugDesc").value.trim();
+    const err  = $("#lugErr");
+    if (!desc) { err.textContent = "Informe a descrição."; err.style.display = "block"; return; }
+    if (lugs.some(l => l.desc.toLowerCase() === desc.toLowerCase())) {
+      err.textContent = "Já existe um lugar com essa descrição."; err.style.display = "block"; return;
+    }
+    lugs.unshift({ id: uid(), desc, criado: stampNow() });
+    persist(K_LUG, lugs);
+    bsModalLug.hide();
+    renderLug();
+    populateVitaSelect();
+  });
+
+  /* ══════════════════════════════════
+     MODAL AMBULÂNCIA
+  ══════════════════════════════════ */
+  const bsModalAmb = new bootstrap.Modal("#modalAmb");
+
+  function openModalAmb() {
+    $("#formAmb").reset();
+    $("#ambErr").style.display = "none";
+    bsModalAmb.show();
+    setTimeout(() => $("#ambNome").focus(), 350);
+  }
+
+  $("#btnNovaAmb").addEventListener("click", openModalAmb);
+
+  $("#formAmb").addEventListener("submit", e => {
+    e.preventDefault();
+    const nome = $("#ambNome").value.trim();
+    const err  = $("#ambErr");
+    err.style.display = "none";
+
+    if (!nome) {
+      err.textContent = "Informe um nome para a ambulância.";
+      err.style.display = "block"; return;
+    }
+    if (ambs.some(a => a.nome.toLowerCase() === nome.toLowerCase())) {
+      err.textContent = "Já existe uma ambulância com esse nome.";
+      err.style.display = "block"; return;
+    }
+
+    ambs.unshift({ id: uid(), nome, criado: stampNow() });
+    persist(K_AMB, ambs);
+    bsModalAmb.hide();
+    renderAmb();
+    renderStats();
+  });
+
+  /* ══════════════════════════════════
+     MODAL MOVIMENTAÇÃO
+  ══════════════════════════════════ */
+  const bsModalMov = new bootstrap.Modal("#modalMov");
+
+  const selectedTipo = () =>
+    (document.querySelector('input[name="movTipo"]:checked') || {}).value || "saida";
+
+  function refreshAmbSelect() {
+    const tipo = selectedTipo();
+    const vita = $("#movVita").value;
+    const sel  = $("#movAmbSel");
+    const info = $("#ambSelInfo");
+
+    let allowed;
+    if (tipo === "saida") {
+      allowed = ambs.filter(a => {
+        const ai = getAmbInfo(a.id);
+        return ai.status === "patio" && (ai.vita === vita || ai.vita === null);
+      });
+    } else {
+      allowed = ambs.filter(a => getAmbInfo(a.id).status === "saida");
+    }
+
+    sel.innerHTML = `<option value="">Selecione...</option>` +
+      allowed.map(a => `<option value="${a.id}">${esc(a.nome)}</option>`).join("");
+
+    if (!ambs.length) {
+      info.textContent = "Nenhuma ambulância cadastrada."; info.style.display = "block";
+    } else if (tipo === "saida" && !vita) {
+      info.textContent = "Selecione o lugar antes de escolher a ambulância."; info.style.display = "block";
+    } else if (!allowed.length) {
+      info.textContent = tipo === "saida"
+        ? `Nenhuma ambulância disponível em ${vita}.`
+        : "Nenhuma ambulância em trânsito para registrar Chegada.";
+      info.style.display = "block";
+    } else {
+      info.style.display = "none";
+    }
+  }
+
+  document.querySelectorAll('input[name="movTipo"]').forEach(r =>
+    r.addEventListener("change", refreshAmbSelect));
+  $("#movVita").addEventListener("change", refreshAmbSelect);
+
+  function openModalMov(editId) {
+    const isEdit = !!editId;
+    $("#movEditId").value           = editId || "";
+    $("#movErr").style.display      = "none";
+    $("#movModalTitle").textContent = isEdit ? "Editar Movimentação" : "Nova Movimentação";
+
+    if (isEdit) {
+      const mov = movs.find(m => m.id === editId);
+      if (!mov) return;
+      const ambNome   = (ambs.find(a => a.id === mov.ambId) || { nome: mov.ambNome }).nome;
+      const tipoLabel = mov.tipo === "saida" ? "Saída" : "Chegada";
+      const vitaLabel = mov.vita || "";
+
+      $("#tipoGroup").style.display   = "none";
+      $("#vitaGroup").style.display   = "none";
+      $("#ambSelGroup").style.display = "none";
+      $("#editInfoBox").style.display = "block";
+      $("#editInfoTxt").textContent   = `${ambNome} — ${tipoLabel}${vitaLabel ? " — " + vitaLabel : ""}`;
+      $("#movData").value = mov.data;
+      $("#movHora").value = mov.hora;
+    } else {
+      $("#tipoGroup").style.display   = "block";
+      $("#vitaGroup").style.display   = "block";
+      $("#ambSelGroup").style.display = "block";
+      $("#editInfoBox").style.display = "none";
+      document.getElementById("rSaida").checked = true;
+      populateVitaSelect("");
+      refreshAmbSelect();
+      $("#movData").value = nowDate();
+      $("#movHora").value = nowTime();
+    }
+
+    bsModalMov.show();
+  }
+
+  $("#btnNovaMov").addEventListener("click", () => openModalMov(null));
+
+  $("#formMov").addEventListener("submit", e => {
+    e.preventDefault();
+    const err    = $("#movErr");
+    const editId = $("#movEditId").value;
+    const data   = $("#movData").value;
+    const hora   = $("#movHora").value;
+    err.style.display = "none";
+
+    if (!data || !hora) {
+      err.textContent = "Informe data e hora."; err.style.display = "block"; return;
+    }
+
+    if (editId) {
+      /* Editar: apenas altera data/hora — sem validar regras de entrada/saída */
+      const idx = movs.findIndex(m => m.id === editId);
+      if (idx >= 0) { movs[idx].data = data; movs[idx].hora = hora; }
+      persist(K_MOV, movs);
+    } else {
+      /* Novo: validar regras */
+      const tipo  = selectedTipo();
+      const vita  = $("#movVita").value;
+      if (!vita) {
+        err.textContent = "Selecione a VITA."; err.style.display = "block"; return;
+      }
+      const ambId = $("#movAmbSel").value;
+      if (!ambId) {
+        err.textContent = "Selecione uma ambulância."; err.style.display = "block"; return;
+      }
+      const amb    = ambs.find(a => a.id === ambId);
+      const ai     = getAmbInfo(ambId);
+
+      if (tipo === "saida" && ai.status === "saida") {
+        err.textContent = `"${amb.nome}" já está em trânsito. Registre a chegada antes de nova saída.`;
+        err.style.display = "block"; return;
+      }
+      if (tipo === "entrada" && ai.status === "patio") {
+        err.textContent = `"${amb.nome}" já está no pátio. Não é possível registrar nova chegada.`;
+        err.style.display = "block"; return;
+      }
+      if (tipo === "saida" && ai.vita && ai.vita !== vita) {
+        err.textContent = `"${amb.nome}" está no pátio de ${ai.vita}. Não pode sair de ${vita}.`;
+        err.style.display = "block"; return;
+      }
+
+      movs.unshift({ id: uid(), ambId, ambNome: amb.nome, tipo, vita, data, hora, reg: stampNow() });
+      persist(K_MOV, movs);
+    }
+
+    bsModalMov.hide();
+    renderMovTable();
+    renderFrota();
+    renderStats();
+    renderAmb();
+    if (document.getElementById("view-historico").classList.contains("active")) renderHistorico();
+  });
+
+  /* ══════════════════════════════════
+     RENDERS
+  ══════════════════════════════════ */
+  const typeBadge = tipo => tipo === "saida"
+    ? `<span class="badge-soft badge-saida"><i class="bi bi-box-arrow-right"></i> Saída</span>`
+    : `<span class="badge-soft badge-entrada"><i class="bi bi-box-arrow-in-left"></i> Chegada</span>`;
+
+  const statusBadge = (st, vita) => st === "saida"
+    ? `<span class="badge-soft badge-transito"><i class="bi bi-box-arrow-right"></i> Em trânsito</span>`
+    : `<span class="badge-soft badge-patio"><i class="bi bi-house-check"></i> No pátio${vita ? " — " + esc(vita) : ""}</span>`;
+
+  function renderAmb() {
+    const tb = $("#tbodyAmb");
+    if (!ambs.length) {
+      tb.innerHTML = `<tr><td colspan="5"><div class="empty"><i class="bi bi-truck-front"></i>Nenhuma ambulância cadastrada.<br>Clique em "Nova Ambulância" para começar.</div></td></tr>`;
+      return;
+    }
+    tb.innerHTML = ambs.map((a, i) => `
+      <tr>
+        <td style="color:var(--text-dim)">${i + 1}</td>
+        <td><span class="cell-av">${esc(ini(a.nome))}</span>${esc(a.nome)}</td>
+        <td>${statusBadge(getAmbInfo(a.id).status, getAmbInfo(a.id).vita)}</td>
+        <td style="color:var(--text-muted);font-size:13px;">${esc(a.criado)}</td>
+        <td style="text-align:center;">
+          <button class="btn-act del" data-del-amb="${a.id}" title="Excluir"><i class="bi bi-trash3"></i></button>
+        </td>
+      </tr>`).join("");
+  }
+
+  function renderFrota() {
+    const c = $("#statusFrota");
+    if (!ambs.length) {
+      c.innerHTML = `<div class="col-12"><div class="empty" style="padding:16px 0;"><i class="bi bi-truck-front"></i>Nenhuma ambulância cadastrada.</div></div>`;
+      return;
+    }
+    c.innerHTML = ambs.map(a => `
+      <div class="col-6 col-md-4 col-lg-3">
+        <div class="frota-card">
+          <div style="display:flex;align-items:center;gap:9px;min-width:0;">
+            <span class="cell-av">${esc(ini(a.nome))}</span>
+            <span style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.nome)}</span>
+          </div>
+          ${statusBadge(getAmbInfo(a.id).status, getAmbInfo(a.id).vita)}
+        </div>
+      </div>`).join("");
+  }
+
+  function renderMovTable() {
+    const tb = $("#tbodyMov");
+    const sorted = [...movs].sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora));
+    if (!sorted.length) {
+      tb.innerHTML = `<tr><td colspan="6"><div class="empty"><i class="bi bi-clock-history"></i>Nenhuma movimentação registrada.<br>Clique em "Nova Movimentação" para começar.</div></td></tr>`;
+      return;
+    }
+    tb.innerHTML = sorted.map(m => {
+      const nome = (ambs.find(a => a.id === m.ambId) || { nome: m.ambNome }).nome;
+      return `
+        <tr>
+          <td><span class="cell-av">${esc(ini(nome))}</span>${esc(nome)}</td>
+          <td>${typeBadge(m.tipo)}</td>
+          <td style="color:var(--text-muted);font-size:13px;">${esc(m.vita || "—")}</td>
+          <td style="color:var(--text-muted);">${fmtDate(m.data)}</td>
+          <td style="color:var(--text-muted);">${esc(m.hora)}</td>
+          <td style="text-align:center;">
+            <button class="btn-act edit" data-edit-mov="${m.id}" title="Editar horário"><i class="bi bi-pencil"></i></button>
+            <button class="btn-act del"  data-del-mov="${m.id}"  title="Excluir"><i class="bi bi-trash3"></i></button>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  function populateFiltAmb() {
+    const sel  = $("#filtAmb");
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">Todas</option>` +
+      ambs.map(a => `<option value="${a.id}">${esc(a.nome)}</option>`).join("");
+    sel.value = prev;
+  }
+
+  function renderHistorico() {
+    const de    = $("#filtDe").value;
+    const ate   = $("#filtAte").value;
+    const tipo  = $("#filtTipo").value;
+    const ambId = $("#filtAmb").value;
+
+    let list = [...movs];
+    if (de)    list = list.filter(m => m.data >= de);
+    if (ate)   list = list.filter(m => m.data <= ate);
+    if (tipo)  list = list.filter(m => m.tipo === tipo);
+    if (ambId) list = list.filter(m => m.ambId === ambId);
+    list.sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora));
+
+    const tb = $("#tbodyHist");
+    $("#histCount").textContent = list.length + " registro" + (list.length === 1 ? "" : "s");
+
+    if (!list.length) {
+      tb.innerHTML = `<tr><td colspan="7"><div class="empty"><i class="bi bi-search"></i>Nenhum registro encontrado com os filtros aplicados.</div></td></tr>`;
+      return;
+    }
+    tb.innerHTML = list.map(m => {
+      const nome = (ambs.find(a => a.id === m.ambId) || { nome: m.ambNome }).nome;
+      return `
+        <tr>
+          <td><span class="cell-av">${esc(ini(nome))}</span>${esc(nome)}</td>
+          <td>${typeBadge(m.tipo)}</td>
+          <td style="color:var(--text-muted);font-size:13px;">${esc(m.vita || "—")}</td>
+          <td style="color:var(--text-muted);">${fmtDate(m.data)}</td>
+          <td style="color:var(--text-muted);">${esc(m.hora)}</td>
+          <td style="color:var(--text-dim);font-size:12px;">${esc(m.reg || "—")}</td>
+          <td style="text-align:center;">
+            <button class="btn-act del" data-del-mov="${m.id}" title="Excluir"><i class="bi bi-trash3"></i></button>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  function limparTodosOsDados() {
+    ambs = []; movs = []; lugs = [];
+    persist(K_AMB, ambs); persist(K_MOV, movs); persist(K_LUG, lugs);
+    renderStats(); renderFrota(); renderAmb(); renderHistorico();
+  }
+
+  function confirmRelatorioApagar() {
+    return new Promise(resolve => {
+      const modalEl = document.getElementById("modalRelatorioConfirm");
+      const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+      const btnNao  = document.getElementById("btnConfRelNao");
+      const btnSim  = document.getElementById("btnConfRelSim");
+
+      function cleanup() {
+        btnNao.removeEventListener("click", onNao);
+        btnSim.removeEventListener("click", onSim);
+        modalEl.removeEventListener("hidden.bs.modal", onHide);
+      }
+      function onNao() { cleanup(); modal.hide(); resolve(false); }
+      function onSim() { cleanup(); modal.hide(); resolve(true); }
+      function onHide() { cleanup(); resolve(null); }
+
+      btnNao.addEventListener("click", onNao);
+      btnSim.addEventListener("click", onSim);
+      modalEl.addEventListener("hidden.bs.modal", onHide, { once: true });
+      modal.show();
+    });
+  }
+
+  async function printRelatorio() {
+    const apagar = await confirmRelatorioApagar();
+    if (apagar === null) return;
+
+    const de    = $("#filtDe").value;
+    const ate   = $("#filtAte").value;
+    const tipo  = $("#filtTipo").value;
+    const ambId = $("#filtAmb").value;
+
+    let list = [...movs];
+    if (de)    list = list.filter(m => m.data >= de);
+    if (ate)   list = list.filter(m => m.data <= ate);
+    if (tipo)  list = list.filter(m => m.tipo === tipo);
+    if (ambId) list = list.filter(m => m.ambId === ambId);
+    list.sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora));
+
+    const total    = list.length;
+    const chegadas = list.filter(m => m.tipo === "entrada").length;
+    const saidas   = list.filter(m => m.tipo === "saida").length;
+
+    let ambLabel = "Todas as ambulâncias";
+    if (ambId) { const amb = ambs.find(a => a.id === ambId); if (amb) ambLabel = amb.nome; }
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const ts  = pad(now.getDate()) + pad(now.getMonth()+1) + now.getFullYear() +
+                pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+
+    const escH = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const fmtD = iso => { if (!iso) return "—"; const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
+
+    const rows = list.map(m => {
+      const nome = (ambs.find(a => a.id === m.ambId) || { nome: m.ambNome }).nome;
+      const bCls = m.tipo === "saida" ? "badge-saida" : "badge-chegada";
+      const bLbl = m.tipo === "saida" ? "SAÍDA" : "CHEGADA";
+      return `<tr>
+        <td><div class="amb-name">${escH(nome)}</div></td>
+        <td><span class="${bCls}">${bLbl}</span></td>
+        <td class="place-cell">${escH(m.vita || "—")}</td>
+        <td class="date-cell">${fmtD(m.data)}<br>${escH(m.hora)}</td>
+        <td class="reg-cell">${escH(m.reg || "—")}</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatorio_${ts}</title>
+<style>
+@page{size:A4;margin:18mm 15mm 25mm;@bottom-left{content:"Registro Operacional de Frota";font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;}@bottom-right{content:"Página " counter(page) " de " counter(pages);font-family:Arial,sans-serif;font-size:10px;color:#94a3b8;}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,Helvetica,sans-serif;color:#1e293b;background:#fff;font-size:12px;}
+.header{margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #14b8a6;}
+.header h1{font-size:22px;font-weight:700;text-transform:uppercase;color:#0f172a;letter-spacing:.5px;}
+.header .sub{font-size:11px;color:#64748b;margin-top:5px;}
+.stats{display:flex;gap:12px;margin-bottom:20px;}
+.stat-card{border:1px solid #e2e8f0;border-radius:8px;padding:12px 18px;flex:1;}
+.stat-label{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:#64748b;font-weight:600;margin-bottom:6px;}
+.stat-value{font-size:28px;font-weight:700;color:#0f172a;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead tr{background:#1e293b;color:#fff;}
+thead th{padding:10px;text-align:left;font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;font-weight:600;}
+tbody tr{border-bottom:1px solid #f1f5f9;}
+tbody td{padding:9px 10px;vertical-align:middle;}
+.amb-name{color:#0891b2;font-weight:700;font-size:12px;}
+.badge-chegada{display:inline-block;border:1.5px solid #14b8a6;color:#0f766e;background:#f0fdfa;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;}
+.badge-saida{display:inline-block;border:1.5px solid #f97316;color:#c2410c;background:#fff7ed;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;}
+.place-cell{font-weight:600;}
+.date-cell{color:#475569;line-height:1.7;}
+.reg-cell{color:#94a3b8;font-size:10.5px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Relatório de Movimentação de Ambulâncias</h1>
+  <p class="sub">Histórico Operacional de Chegadas e Saídas | Veículo: ${escH(ambLabel)}</p>
+</div>
+<div class="stats">
+  <div class="stat-card"><div class="stat-label">Total de Registros</div><div class="stat-value">${total}</div></div>
+  <div class="stat-card"><div class="stat-label">Total de Chegadas</div><div class="stat-value">${chegadas}</div></div>
+  <div class="stat-card"><div class="stat-label">Total de Saídas</div><div class="stat-value">${saidas}</div></div>
+</div>
+<table>
+<thead><tr><th>Ambulância</th><th>Tipo</th><th>Lugar / Unidade</th><th>Data / Hora</th><th>Registrado em</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>
+<script>window.print();<\/script>
+</body>
+</html>`;
+
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    if (apagar) limparTodosOsDados();
+  }
+
+  /* ─── IndexedDB: persiste handle da pasta Relatorio ─── */
+  const idb = (() => {
+    let db;
+    function open() {
+      if (db) return Promise.resolve(db);
+      return new Promise((res, rej) => {
+        const req = indexedDB.open("ca-settings", 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore("kv");
+        req.onsuccess = e => { db = e.target.result; res(db); };
+        req.onerror = rej;
+      });
+    }
+    return {
+      async get(key) {
+        const d = await open();
+        return new Promise((res, rej) => { const r = d.transaction("kv","readonly").objectStore("kv").get(key); r.onsuccess = () => res(r.result); r.onerror = rej; });
+      },
+      async set(key, val) {
+        const d = await open();
+        return new Promise((res, rej) => { const tx = d.transaction("kv","readwrite"); tx.objectStore("kv").put(val, key); tx.oncomplete = res; tx.onerror = rej; });
+      },
+    };
+  })();
+
+  async function getRelatorioDir() {
+    const stored = await idb.get("relatorio-dir");
+    if (stored) {
+      try {
+        const perm = await stored.requestPermission({ mode: "readwrite" });
+        if (perm === "granted") return stored;
+      } catch(e) { /* handle inválido, pede novo */ }
+    }
+    const handle = await window.showDirectoryPicker({ mode: "readwrite", startIn: "downloads" });
+    await idb.set("relatorio-dir", handle);
+    return handle;
+  }
+
+  async function downloadRelatorio() {
+    const apagar = await confirmRelatorioApagar();
+    if (apagar === null) return;
+
+    const de    = $("#filtDe").value;
+    const ate   = $("#filtAte").value;
+    const tipo  = $("#filtTipo").value;
+    const ambId = $("#filtAmb").value;
+
+    let list = [...movs];
+    if (de)    list = list.filter(m => m.data >= de);
+    if (ate)   list = list.filter(m => m.data <= ate);
+    if (tipo)  list = list.filter(m => m.tipo === tipo);
+    if (ambId) list = list.filter(m => m.ambId === ambId);
+    list.sort((a, b) => (b.data + b.hora).localeCompare(a.data + a.hora));
+
+    const total    = list.length;
+    const chegadas = list.filter(m => m.tipo === "entrada").length;
+    const saidas   = list.filter(m => m.tipo === "saida").length;
+
+    let ambLabel = "Todas as ambulancias";
+    if (ambId) { const amb = ambs.find(a => a.id === ambId); if (amb) ambLabel = amb.nome; }
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const ts  = pad(now.getDate()) + pad(now.getMonth()+1) + now.getFullYear() +
+                pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+    const dateFolderName = pad(now.getDate()) + pad(now.getMonth()+1) + now.getFullYear();
+    const fileName = `Relatorio_${ts}.pdf`;
+    const fmtD = iso => { if (!iso) return "-"; const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
+
+    if (!window.jspdf) { alert("Biblioteca jsPDF nao carregada. Verifique a conexao."); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
+    const ML = 15, MR = 15;
+
+    /* Header */
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    doc.setTextColor(15, 23, 42);
+    doc.text("RELATORIO DE MOVIMENTACAO DE AMBULANCIAS", ML, 20);
+    doc.setDrawColor(20, 184, 166);
+    doc.setLineWidth(0.8);
+    doc.line(ML, 23.5, W - MR, 23.5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Historico Operacional de Chegadas e Saidas | Veiculo: " + ambLabel, ML, 30);
+
+    /* Stats cards */
+    const cardW = (W - ML - MR - 8) / 3;
+    const cardY = 37, cardH = 22;
+    [["TOTAL DE REGISTROS", total], ["TOTAL DE CHEGADAS", chegadas], ["TOTAL DE SAIDAS", saidas]].forEach(([lbl, val], i) => {
+      const cx = ML + i * (cardW + 4);
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(cx, cardY, cardW, cardH, 3, 3, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(lbl, cx + 4, cardY + 7);
+      doc.setFontSize(20);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(val), cx + 4, cardY + 17);
+    });
+
+    /* Table */
+    const tableBody = list.map(m => {
+      const nome = (ambs.find(a => a.id === m.ambId) || { nome: m.ambNome }).nome;
+      return [nome, m.tipo, m.vita || "-", fmtD(m.data) + "\n" + (m.hora || "-"), m.reg || "-"];
+    });
+
+    doc.autoTable({
+      startY: cardY + cardH + 6,
+      head: [["AMBULANCIA", "TIPO", "LUGAR / UNIDADE", "DATA / HORA", "REGISTRADO EM"]],
+      body: tableBody,
+      theme: "grid",
+      margin: { left: ML, right: MR },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontSize: 8.5, fontStyle: "bold", cellPadding: 3 },
+      bodyStyles: { fontSize: 9.5, cellPadding: { top: 3, right: 3, bottom: 3, left: 3 }, lineColor: [226, 232, 240], textColor: [30, 41, 59] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 42 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 46 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 38 },
+      },
+      didParseCell(data) {
+        if (data.section !== "body") return;
+        if (data.column.index === 0) {
+          data.cell.styles.textColor = [8, 145, 178];
+          data.cell.styles.fontStyle = "bold";
+        }
+        if (data.column.index === 1) {
+          const isCheg = data.cell.raw === "entrada";
+          data.cell.text = [isCheg ? "CHEGADA" : "SAIDA"];
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fontSize = 8;
+          data.cell.styles.textColor = isCheg ? [15, 118, 110] : [194, 65, 12];
+          data.cell.styles.fillColor = isCheg ? [240, 253, 250] : [255, 247, 237];
+        }
+        if (data.column.index === 3) { data.cell.styles.textColor = [71, 85, 105]; }
+        if (data.column.index === 4) { data.cell.styles.textColor = [148, 163, 184]; data.cell.styles.fontSize = 8.5; }
+      },
+      didDrawCell(data) {
+        if (data.section !== "body" || data.column.index !== 1) return;
+        const isCheg = data.row.raw[1] === "entrada";
+        doc.setDrawColor(...(isCheg ? [20, 184, 166] : [249, 115, 22]));
+        doc.setLineWidth(0.4);
+        doc.roundedRect(data.cell.x + 1, data.cell.y + 1, data.cell.width - 2, data.cell.height - 2, 1.5, 1.5, "S");
+      },
+    });
+
+    /* Footers */
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const pH = doc.internal.pageSize.getHeight();
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Registro Operacional de Frota", ML, pH - 8);
+      doc.text(`Pagina ${i} de ${pageCount}`, W - MR, pH - 8, { align: "right" });
+    }
+
+    /* Save via File System Access API (pasta memorizada) ou fallback */
+    const pdfBlob = doc.output("blob");
+
+    if (window.showDirectoryPicker) {
+      try {
+        const rootHandle = await getRelatorioDir();
+        const subDir     = await rootHandle.getDirectoryHandle(dateFolderName, { create: true });
+        const fileHandle = await subDir.getFileHandle(fileName, { create: true });
+        const writable   = await fileHandle.createWritable();
+        await writable.write(pdfBlob);
+        await writable.close();
+        if (apagar) limparTodosOsDados();
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+        /* fallback abaixo */
+      }
+    }
+
+    /* Fallback: download direto (pasta padrão do navegador) */
+    const url = URL.createObjectURL(pdfBlob);
+    const a   = document.createElement("a");
+    a.href     = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (apagar) limparTodosOsDados();
+  }
+
+  function renderStats() {
+    const emTransito = ambs.filter(a => getAmbInfo(a.id).status === "saida").length;
+    $("#stAmb").textContent      = ambs.length;
+    $("#stTransito").textContent = emTransito;
+    $("#stPatio").textContent    = ambs.length - emTransito;
+    $("#stMov").textContent      = movs.length;
+  }
+
+  /* ══════════════════════════════════
+     IMPORTAR / EXPORTAR
+  ══════════════════════════════════ */
+  $("#btnExportar").addEventListener("click", () => {
+    const payload = {
+      versao: 1,
+      exportado: new Date().toLocaleString("pt-BR"),
+      ambulancias: ambs,
+      movimentacoes: movs,
+      lugares: lugs,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = "controle-ambulancias-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const info = $("#exportInfo");
+    info.innerHTML = `<i class="bi bi-check-circle"></i> Arquivo exportado: <strong>${ambs.length}</strong> ambulância(s) e <strong>${movs.length}</strong> movimentação(ões).`;
+    info.style.display = "block";
+  });
+
+  $("#btnImportar").addEventListener("click", () => {
+    const file   = $("#importFile").files[0];
+    const res    = $("#importResult");
+    res.style.display = "none";
+
+    if (!file) {
+      res.innerHTML = `<div class="a-warn"><i class="bi bi-exclamation-triangle"></i> Selecione um arquivo JSON antes de importar.</div>`;
+      res.style.display = "block"; return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (!Array.isArray(parsed.ambulancias) || !Array.isArray(parsed.movimentacoes)) {
+          throw new Error("formato inválido");
+        }
+        const nAmb = parsed.ambulancias.length;
+        const nMov = parsed.movimentacoes.length;
+        if (!confirm(
+          `Importar ${nAmb} ambulância(s) e ${nMov} movimentação(ões)?\n\n` +
+          `ATENÇÃO: todos os dados atuais serão substituídos. Esta ação não pode ser desfeita.`
+        )) return;
+
+        ambs = parsed.ambulancias;
+        movs = parsed.movimentacoes;
+        lugs = Array.isArray(parsed.lugares) ? parsed.lugares : [];
+        persist(K_AMB, ambs);
+        persist(K_MOV, movs);
+        persist(K_LUG, lugs);
+
+        res.innerHTML = `<div class="a-info"><i class="bi bi-check-circle-fill"></i> Importado com sucesso: <strong>${nAmb}</strong> ambulância(s), <strong>${nMov}</strong> movimentação(ões) e <strong>${lugs.length}</strong> lugar(es).</div>`;
+        res.style.display = "block";
+        $("#importFile").value = "";
+        renderStats();
+      } catch {
+        res.innerHTML = `<div class="a-warn"><i class="bi bi-x-circle"></i> Arquivo inválido ou corrompido. Use apenas arquivos exportados por este sistema.</div>`;
+        res.style.display = "block";
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  });
+
+  /* ─── Delegação de eventos (delete / edit) ─── */
+  document.body.addEventListener("click", e => {
+    const dA  = e.target.closest("[data-del-amb]");
+    const dM  = e.target.closest("[data-del-mov]");
+    const dL  = e.target.closest("[data-del-lug]");
+    const edM = e.target.closest("[data-edit-mov]");
+
+    if (dA) {
+      if (!confirm("Excluir esta ambulância?\n\nOs registros de movimentação associados serão mantidos no histórico.")) return;
+      ambs = ambs.filter(a => a.id !== dA.dataset.delAmb);
+      persist(K_AMB, ambs);
+      renderAmb(); renderStats(); renderFrota();
+    }
+    if (dM) {
+      if (!confirm("Excluir este registro de movimentação?")) return;
+      movs = movs.filter(m => m.id !== dM.dataset.delMov);
+      persist(K_MOV, movs);
+      renderMovTable(); renderFrota(); renderStats(); renderAmb();
+      if (document.getElementById("view-historico").classList.contains("active")) renderHistorico();
+    }
+    if (dL) {
+      if (!confirm("Excluir este lugar?")) return;
+      lugs = lugs.filter(l => l.id !== dL.dataset.delLug);
+      persist(K_LUG, lugs);
+      renderLug();
+      populateVitaSelect();
+    }
+    if (edM) openModalMov(edM.dataset.editMov);
+  });
+
+  /* ─── Filtros ─── */
+  $("#btnPrintRel").addEventListener("click", printRelatorio);
+  $("#btnDownloadRel").addEventListener("click", downloadRelatorio);
+  $("#btnFiltrar").addEventListener("click", renderHistorico);
+  $("#btnLimpar").addEventListener("click", () => {
+    $("#filtDe").value = ""; $("#filtAte").value = "";
+    $("#filtTipo").value = ""; $("#filtAmb").value = "";
+    renderHistorico();
+  });
+
+  /* ══════════════════════════════════
+     LIMPAR DADOS
+  ══════════════════════════════════ */
+  function bindConfirmInput(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn   = document.getElementById(btnId);
+    input.addEventListener("input", () => {
+      if (input.value.trim().toUpperCase() === "CONFIRMAR") {
+        btn.classList.add("enabled");
+      } else {
+        btn.classList.remove("enabled");
+      }
+    });
+  }
+
+  bindConfirmInput("confirmMovInput", "btnLimparMov");
+  bindConfirmInput("confirmTudoInput", "btnLimparTudo");
+
+  $("#btnLimparMov").addEventListener("click", () => {
+    if (!$("#btnLimparMov").classList.contains("enabled")) return;
+    movs = [];
+    persist(K_MOV, movs);
+    $("#confirmMovInput").value = "";
+    $("#btnLimparMov").classList.remove("enabled");
+    const res = $("#limparMovResult");
+    res.innerHTML = `<div class="a-info"><i class="bi bi-check-circle-fill"></i> Todas as movimentações foram apagadas.</div>`;
+    res.style.display = "block";
+    renderStats(); renderFrota(); renderAmb();
+  });
+
+  $("#btnLimparTudo").addEventListener("click", () => {
+    if (!$("#btnLimparTudo").classList.contains("enabled")) return;
+    ambs = []; movs = []; lugs = [];
+    persist(K_AMB, ambs); persist(K_MOV, movs); persist(K_LUG, lugs);
+    $("#confirmTudoInput").value = "";
+    $("#btnLimparTudo").classList.remove("enabled");
+    const res = $("#limparTudoResult");
+    res.innerHTML = `<div class="a-info"><i class="bi bi-check-circle-fill"></i> Todos os dados foram apagados. O sistema está em estado inicial.</div>`;
+    res.style.display = "block";
+    renderStats(); renderFrota(); renderAmb();
+  });
+
+  /* ─── Init ─── */
+  renderStats();
+  renderAmb();
+  populateVitaSelect();
+})();
+</script>
+</body>
+</html>
