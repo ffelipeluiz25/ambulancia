@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Aplicação web single-page (`index.html`) sem backend. Todos os dados persistem em `localStorage` do navegador. Interface em português, tema escuro/claro alternável.
+Aplicação web single-page (`www/index.html`) sem backend. Roda no navegador e como APK Android offline (Capacitor) — ver [README.md](README.md). Todos os dados persistem em `localStorage` (do navegador ou da WebView do app). Interface em português, tema escuro/claro alternável.
 
 ---
 
@@ -143,4 +143,6 @@ Colunas exibidas: Ambulância, Tipo, Lugar, Data, Hora, Registrado em, Excluir.
 - HTML + CSS + JavaScript vanilla (sem framework JS)
 - Bootstrap 5.3.3 (layout, modais, utilitários)
 - Bootstrap Icons 1.11.3
-- Sem dependências de backend ou build
+- jsPDF 2.5.1 + jspdf-autotable 3.8.2 (relatório PDF)
+- Bibliotecas servidas localmente de `www/vendor/` (copiadas de `node_modules` por `npm run vendor`), sem CDN
+- Capacitor 8 (Filesystem, Share, App) para o APK Android; no app, `isNative` troca download/File System Access API por salvar em `Documentos/ControleAmbulancias/` + compartilhar
